@@ -158,16 +158,21 @@ function! provider#clipboard#Executable() abort
     let s:copy['*'] = s:copy['+']
     let s:paste['*'] = s:paste['+']
     return 'termux-clipboard'
-  elseif !empty($TMUX) && executable('tmux')
-    let tmux_v = v:lua.vim.version.parse(system(['tmux', '-V']))
-    if !empty(tmux_v) && !v:lua.vim.version.lt(tmux_v, [3,2,0])
-      let s:copy['+'] = ['tmux', 'load-buffer', '-w', '-']
-    else
-      let s:copy['+'] = ['tmux', 'load-buffer', '-']
+  elseif executable('tmux')
+    if empty($TMUX)
+      call system(['tmux', 'list-buffers'])
     endif
-    let s:paste['+'] = ['tmux', 'save-buffer', '-']
-    let s:copy['*'] = s:copy['+']
-    let s:paste['*'] = s:paste['+']
+    if !empty($TMUX) || v:shell_error == 0
+      let tmux_v = v:lua.vim.version.parse(system(['tmux', '-V']))
+      if !empty(tmux_v) && !v:lua.vim.version.lt(tmux_v, [3,2,0])
+        let s:copy['+'] = ['tmux', 'load-buffer', '-w', '-']
+      else
+        let s:copy['+'] = ['tmux', 'load-buffer', '-']
+      endif
+      let s:paste['+'] = ['tmux', 'save-buffer', '-']
+      let s:copy['*'] = s:copy['+']
+      let s:paste['*'] = s:paste['+']
+    endif
     return 'tmux'
   endif
 
