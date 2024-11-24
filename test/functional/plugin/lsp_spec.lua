@@ -466,10 +466,17 @@ describe('LSP', function()
               true,
               exec_lua(function()
                 local keymap --- @type table<string,any>
+                local called = false
+                local origin = vim.lsp.buf.hover
+                vim.lsp.buf.hover = function()
+                  called = true
+                end
                 vim._with({ buf = _G.BUFFER }, function()
                   keymap = vim.fn.maparg('K', 'n', false, true)
                 end)
-                return keymap.callback == vim.lsp.buf.hover
+                keymap.callback()
+                vim.lsp.buf.hover = origin
+                return called
               end)
             )
             client:stop()
@@ -480,13 +487,13 @@ describe('LSP', function()
           eq('', get_buf_option('omnifunc'))
           eq('', get_buf_option('formatexpr'))
           eq(
-            '',
+            true,
             exec_lua(function()
               local keymap --- @type string
               vim._with({ buf = _G.BUFFER }, function()
                 keymap = vim.fn.maparg('K', 'n', false, false)
               end)
-              return keymap
+              return keymap:match('<Lua %d+: .+/runtime/lua/vim/lsp%.lua:%d+>') ~= nil
             end)
           )
         end,
@@ -3499,7 +3506,7 @@ describe('LSP', function()
         }
         return vim.lsp.util.convert_signature_help_to_markdown_lines(signature_help, 'zig', { '(' })
       end)
-      -- Note that although the higlight positions below are 0-indexed, the 2nd parameter
+      -- Note that although the highlight positions below are 0-indexed, the 2nd parameter
       -- corresponds to the 3rd line because the first line is the ``` from the
       -- Markdown block.
       local expected = { 3, 4, 3, 11 }

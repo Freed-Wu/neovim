@@ -228,7 +228,7 @@ static void set_init_default_backupskip(void)
 #endif
     {
       p = vim_getenv(names[i]);
-      plen = 0;  // will be calcuated below
+      plen = 0;  // will be calculated below
     }
     if (p != NULL && *p != NUL) {
       bool has_trailing_path_sep = false;
@@ -1276,6 +1276,7 @@ static void do_one_set_option(int opt_flags, char **argp, bool *did_show, char *
       gotocmdline(true);                // cursor at status line
       *did_show = true;                 // remember that we did a line
     }
+    msg_ext_set_kind("list_cmd");
     showoneopt(&options[opt_idx], opt_flags);
 
     if (p_verbose > 0) {
@@ -1735,8 +1736,14 @@ bool parse_winhl_opt(const char *winhl, win_T *wp)
     p = wp->w_p_winhl;
   }
 
+  if (wp != NULL && wp->w_ns_hl_winhl < 0) {
+    // 'winhighlight' shouldn't be used for this window.
+    // Only check that the value is valid.
+    wp = NULL;
+  }
+
   if (!*p) {
-    if (wp != NULL && wp->w_ns_hl_winhl && wp->w_ns_hl == wp->w_ns_hl_winhl) {
+    if (wp != NULL && wp->w_ns_hl_winhl > 0 && wp->w_ns_hl == wp->w_ns_hl_winhl) {
       wp->w_ns_hl = 0;
       wp->w_hl_needs_update = true;
     }
@@ -2189,6 +2196,13 @@ static const char *did_set_modified(optset_T *args)
   }
   redraw_titles();
   buf->b_modified_was_set = (int)args->os_newval.boolean;
+  return NULL;
+}
+
+/// Process the updated 'msghistory' option value.
+static const char *did_set_msghistory(optset_T *args FUNC_ATTR_UNUSED)
+{
+  check_msg_hist();
   return NULL;
 }
 
@@ -4048,6 +4062,7 @@ static void showoptions(bool all, int opt_flags)
 
   vimoption_T **items = xmalloc(sizeof(vimoption_T *) * OPTION_COUNT);
 
+  msg_ext_set_kind("list_cmd");
   // Highlight title
   if (opt_flags & OPT_GLOBAL) {
     msg_puts_title(_("\n--- Global option values ---"));
@@ -6005,19 +6020,19 @@ int fill_culopt_flags(char *val, win_T *wp)
     p = val;
   }
   while (*p != NUL) {
-    // Note: Keep this in sync with p_culopt_values.
+    // Note: Keep this in sync with opt_culopt_values.
     if (strncmp(p, "line", 4) == 0) {
       p += 4;
-      culopt_flags_new |= CULOPT_LINE;
+      culopt_flags_new |= kOptCuloptFlagLine;
     } else if (strncmp(p, "both", 4) == 0) {
       p += 4;
-      culopt_flags_new |= CULOPT_LINE | CULOPT_NBR;
+      culopt_flags_new |= kOptCuloptFlagLine | kOptCuloptFlagNumber;
     } else if (strncmp(p, "number", 6) == 0) {
       p += 6;
-      culopt_flags_new |= CULOPT_NBR;
+      culopt_flags_new |= kOptCuloptFlagNumber;
     } else if (strncmp(p, "screenline", 10) == 0) {
       p += 10;
-      culopt_flags_new |= CULOPT_SCRLINE;
+      culopt_flags_new |= kOptCuloptFlagScreenline;
     }
 
     if (*p != ',' && *p != NUL) {
@@ -6029,7 +6044,7 @@ int fill_culopt_flags(char *val, win_T *wp)
   }
 
   // Can't have both "line" and "screenline".
-  if ((culopt_flags_new & CULOPT_LINE) && (culopt_flags_new & CULOPT_SCRLINE)) {
+  if ((culopt_flags_new & kOptCuloptFlagLine) && (culopt_flags_new & kOptCuloptFlagScreenline)) {
     return FAIL;
   }
   wp->w_p_culopt_flags = culopt_flags_new;
@@ -6139,7 +6154,8 @@ char *get_flp_value(buf_T *buf)
 /// Get the local or global value of 'virtualedit' flags.
 unsigned get_ve_flags(win_T *wp)
 {
-  return (wp->w_ve_flags ? wp->w_ve_flags : ve_flags) & ~(VE_NONE | VE_NONEU);
+  return (wp->w_ve_flags ? wp->w_ve_flags : ve_flags)
+         & ~(unsigned)(kOptVeFlagNone | kOptVeFlagNoneU);
 }
 
 /// Get the local or global value of 'showbreak'.

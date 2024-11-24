@@ -4381,6 +4381,7 @@ vim.go.mouset = vim.go.mousetime
 
 --- Determines how many entries are remembered in the `:messages` history.
 --- The maximum value is 10000.
+--- Setting it to zero clears the message history.
 ---
 --- @type integer
 vim.o.msghistory = 500
@@ -7122,6 +7123,13 @@ vim.go.titleold = vim.o.titleold
 --- expanded according to the rules used for 'statusline'.  If it contains
 --- an invalid '%' format, the value is used as-is and no error or warning
 --- will be given when the value is set.
+---
+--- The default behaviour is equivalent to:
+---
+--- ```vim
+---     set titlestring=%t%(\ %M%)%(\ \(%{expand(\"%:~:h\")}\)%)%a\ -\ Nvim
+--- ```
+---
 --- This option cannot be set in a modeline when 'modelineexpr' is off.
 ---
 --- Example:
