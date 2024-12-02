@@ -174,6 +174,7 @@ local constants = {
     -- Defined by the protocol.
     RequestCancelled = -32800,
     ContentModified = -32801,
+    ServerCancelled = -32802,
   },
 
   -- Describes the content type that a client supports in various
@@ -437,6 +438,13 @@ function protocol.make_client_capabilities()
         dynamicRegistration = false,
         resolveSupport = {
           properties = { 'command' },
+        },
+      },
+      foldingRange = {
+        dynamicRegistration = false,
+        lineFoldingOnly = true,
+        foldingRange = {
+          collapsedText = true,
         },
       },
       formatting = {

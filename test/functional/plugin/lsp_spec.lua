@@ -466,10 +466,17 @@ describe('LSP', function()
               true,
               exec_lua(function()
                 local keymap --- @type table<string,any>
+                local called = false
+                local origin = vim.lsp.buf.hover
+                vim.lsp.buf.hover = function()
+                  called = true
+                end
                 vim._with({ buf = _G.BUFFER }, function()
                   keymap = vim.fn.maparg('K', 'n', false, true)
                 end)
-                return keymap.callback == vim.lsp.buf.hover
+                keymap.callback()
+                vim.lsp.buf.hover = origin
+                return called
               end)
             )
             client:stop()
@@ -480,13 +487,13 @@ describe('LSP', function()
           eq('', get_buf_option('omnifunc'))
           eq('', get_buf_option('formatexpr'))
           eq(
-            '',
+            true,
             exec_lua(function()
               local keymap --- @type string
               vim._with({ buf = _G.BUFFER }, function()
                 keymap = vim.fn.maparg('K', 'n', false, false)
               end)
-              return keymap
+              return keymap:match('<Lua %d+: .+/runtime/lua/vim/lsp%.lua:%d+>') ~= nil
             end)
           )
         end,
@@ -1059,6 +1066,39 @@ describe('LSP', function()
       }
     end)
 
+    it('should forward ServerCancelled to callback', function()
+      local expected_handlers = {
+        { NIL, {}, { method = 'finish', client_id = 1 } },
+        {
+          { code = -32802 },
+          NIL,
+          { method = 'error_code_test', bufnr = 1, client_id = 1, version = 0 },
+        },
+      }
+      local client --- @type vim.lsp.Client
+      test_rpc_server {
+        test_name = 'check_forward_server_cancelled',
+        on_init = function(_client)
+          _client:request('error_code_test')
+          client = _client
+        end,
+        on_exit = function(code, signal)
+          eq(0, code, 'exit code')
+          eq(0, signal, 'exit signal')
+          eq(0, #expected_handlers, 'did not call expected handler')
+        end,
+        on_handler = function(err, _, ctx)
+          eq(table.remove(expected_handlers), { err, _, ctx }, 'expected handler')
+          if ctx.method ~= 'finish' then
+            client:notify('finish')
+          end
+          if ctx.method == 'finish' then
+            client:stop()
+          end
+        end,
+      }
+    end)
+
     it('should forward ContentModified to callback', function()
       local expected_handlers = {
         { NIL, {}, { method = 'finish', client_id = 1 } },
@@ -1082,7 +1122,6 @@ describe('LSP', function()
         end,
         on_handler = function(err, _, ctx)
           eq(table.remove(expected_handlers), { err, _, ctx }, 'expected handler')
-          -- if ctx.method == 'error_code_test' then client.notify("finish") end
           if ctx.method ~= 'finish' then
             client:notify('finish')
           end
@@ -3499,7 +3538,7 @@ describe('LSP', function()
         }
         return vim.lsp.util.convert_signature_help_to_markdown_lines(signature_help, 'zig', { '(' })
       end)
-      -- Note that although the higlight positions below are 0-indexed, the 2nd parameter
+      -- Note that although the highlight positions below are 0-indexed, the 2nd parameter
       -- corresponds to the 3rd line because the first line is the ``` from the
       -- Markdown block.
       local expected = { 3, 4, 3, 11 }
