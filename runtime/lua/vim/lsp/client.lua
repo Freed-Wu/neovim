@@ -94,7 +94,8 @@ local validate = vim.validate
 --- Language ID as string. Defaults to the buffer filetype.
 --- @field get_language_id? fun(bufnr: integer, filetype: string): string
 ---
---- The encoding that the LSP server expects. Client does not verify this is correct.
+--- Called "position encoding" in LSP spec, the encoding that the LSP server expects.
+--- Client does not verify this is correct.
 --- @field offset_encoding? 'utf-8'|'utf-16'|'utf-32'
 ---
 --- Callback invoked when the client operation throws an error. `code` is a number describing the error.
@@ -148,8 +149,10 @@ local validate = vim.validate
 --- See |vim.lsp.rpc.start()|.
 --- @field rpc vim.lsp.rpc.PublicClient
 ---
---- The encoding used for communicating with the server. You can modify this in
---- the `config`'s `on_init` method before text is sent to the server.
+--- Called "position encoding" in LSP spec,
+--- the encoding used for communicating with the server.
+--- You can modify this in the `config`'s `on_init` method
+--- before text is sent to the server.
 --- @field offset_encoding string
 ---
 --- The handlers used by the client as described in |lsp-handler|.
@@ -278,7 +281,7 @@ local function validate_encoding(encoding)
   return valid_encodings[encoding:lower()]
     or error(
       string.format(
-        "Invalid offset encoding %q. Must be one of: 'utf-8', 'utf-16', 'utf-32'",
+        "Invalid position encoding %q. Must be one of: 'utf-8', 'utf-16', 'utf-32'",
         encoding
       )
     )
@@ -636,7 +639,7 @@ end
 --- @param method string LSP method name.
 --- @param params? table LSP request params.
 --- @param handler? lsp.Handler Response |lsp-handler| for this method.
---- @param bufnr? integer Buffer handle. 0 for current (default).
+--- @param bufnr? integer (default: 0) Buffer handle, or 0 for current.
 --- @return boolean status indicates whether the request was successful.
 ---     If it is `false`, then it will always be `false` (the client has shutdown).
 --- @return integer? request_id Can be used with |Client:cancel_request()|.
@@ -715,7 +718,7 @@ end
 --- @param params table LSP request params.
 --- @param timeout_ms integer? Maximum time in milliseconds to wait for
 ---                                a result. Defaults to 1000
---- @param bufnr integer Buffer handle (0 for current).
+--- @param bufnr? integer (default: 0) Buffer handle, or 0 for current.
 --- @return {err: lsp.ResponseError?, result:any}? `result` and `err` from the |lsp-handler|.
 ---                 `nil` is the request was unsuccessful
 --- @return string? err On timeout, cancel or error, where `err` is a

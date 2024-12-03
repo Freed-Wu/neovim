@@ -186,13 +186,13 @@ win_T *swbuf_goto_win_with_buf(buf_T *buf)
 
   // If 'switchbuf' contains "useopen": jump to first window in the current
   // tab page containing "buf" if one exists.
-  if (swb_flags & SWB_USEOPEN) {
+  if (swb_flags & kOptSwbFlagUseopen) {
     wp = buf_jump_open_win(buf);
   }
 
   // If 'switchbuf' contains "usetab": jump to first window in any tab page
   // containing "buf" if one exists.
-  if (wp == NULL && (swb_flags & SWB_USETAB)) {
+  if (wp == NULL && (swb_flags & kOptSwbFlagUsetab)) {
     wp = buf_jump_open_tab(buf);
   }
 
@@ -583,7 +583,7 @@ wingotofile:
       // If 'switchbuf' is set to 'useopen' or 'usetab' and the
       // file is already opened in a window, then jump to it.
       win_T *wp = NULL;
-      if ((swb_flags & (SWB_USEOPEN | SWB_USETAB))
+      if ((swb_flags & (kOptSwbFlagUseopen | kOptSwbFlagUsetab))
           && cmdmod.cmod_tab == 0) {
         wp = swbuf_goto_win_with_buf(buflist_findname_exp(ptr));
       }
@@ -3448,13 +3448,13 @@ static frame_T *win_altframe(win_T *win, tabpage_T *tp)
 static tabpage_T *alt_tabpage(void)
 {
   // Use the last accessed tab page, if possible.
-  if ((tcl_flags & TCL_USELAST) && valid_tabpage(lastused_tabpage)) {
+  if ((tcl_flags & kOptTclFlagUselast) && valid_tabpage(lastused_tabpage)) {
     return lastused_tabpage;
   }
 
   // Use the next tab page, if possible.
   bool forward = curtab->tp_next != NULL
-                 && ((tcl_flags & TCL_LEFT) == 0 || curtab == first_tabpage);
+                 && ((tcl_flags & kOptTclFlagLeft) == 0 || curtab == first_tabpage);
 
   tabpage_T *tp;
   if (forward) {
@@ -6189,7 +6189,7 @@ const char *did_set_winminheight(optset_T *args FUNC_ATTR_UNUSED)
   // loop until there is a 'winminheight' that is possible
   while (p_wmh > 0) {
     const int room = Rows - (int)p_ch;
-    const int needed = min_rows();
+    const int needed = min_rows_for_all_tabpages();
     if (room >= needed) {
       break;
     }
@@ -7065,8 +7065,24 @@ int last_stl_height(bool morewin)
 }
 
 /// Return the minimal number of rows that is needed on the screen to display
-/// the current number of windows.
-int min_rows(void)
+/// the current number of windows for the given tab page.
+int min_rows(tabpage_T *tp) FUNC_ATTR_NONNULL_ALL
+{
+  if (firstwin == NULL) {       // not initialized yet
+    return MIN_LINES;
+  }
+
+  int total = frame_minheight(tp->tp_topframe, NULL);
+  total += tabline_height() + global_stl_height();
+  if ((tp == curtab ? p_ch : tp->tp_ch_used) > 0) {
+    total++;  // count the room for the command line
+  }
+  return total;
+}
+
+/// Return the minimal number of rows that is needed on the screen to display
+/// the current number of windows for all tab pages.
+int min_rows_for_all_tabpages(void)
 {
   if (firstwin == NULL) {       // not initialized yet
     return MIN_LINES;
@@ -7075,12 +7091,12 @@ int min_rows(void)
   int total = 0;
   FOR_ALL_TABS(tp) {
     int n = frame_minheight(tp->tp_topframe, NULL);
+    if ((tp == curtab ? p_ch : tp->tp_ch_used) > 0) {
+      n++;  // count the room for the command line
+    }
     total = MAX(total, n);
   }
   total += tabline_height() + global_stl_height();
-  if (p_ch > 0) {
-    total += 1;           // count the room for the command line
-  }
   return total;
 }
 
